@@ -40,9 +40,13 @@ type ForkOptions struct {
 	Rename       bool
 }
 
+// TODO get this into the Options
 var Since = func(t time.Time) time.Duration {
 	return time.Since(t)
 }
+
+// TODO warn about useless flags (--remote, --remote-name) when running from outside a repository
+// TODO output over STDOUT not STDERR
 
 func NewCmdFork(f *cmdutil.Factory, runF func(*ForkOptions) error) *cobra.Command {
 	opts := &ForkOptions{

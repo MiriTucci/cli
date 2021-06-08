@@ -760,7 +760,6 @@ func TestRepoFork(t *testing.T) {
 		// TODO implicit already forked
 		// TODO implicit interactive
 
-		// TODO explicit interactive already forked
 		// TODO explicit interactive with clone
 		// TODO explicit interactive with no clone
 		// TODO explicit url arg
@@ -771,6 +770,28 @@ func TestRepoFork(t *testing.T) {
 
 		// TODO i don't like passing since every time, clean that up
 
+		{
+			name: "explicit interactive",
+			tty:  true,
+			opts: &ForkOptions{
+				Repository:  "OWNER/REPO",
+				PromptClone: true,
+			},
+			httpStubs: func(reg *httpmock.Registry) {
+				reg.Register(
+					httpmock.REST("POST", "repos/OWNER/REPO/forks"),
+					httpmock.StringResponse(forkResult))
+			},
+			askStubs: func(as *prompt.AskStubber) {
+				as.StubOne(true)
+			},
+			execStubs: func(cs *run.CommandStubber) {
+				cs.Register(`git clone https://github.com/someone/REPO\.git`, 0, "")
+				cs.Register(`git -C REPO remote add -f upstream https://github\.com/OWNER/REPO\.git`, 0, "")
+			},
+			since:      2 * time.Second,
+			wantErrOut: "✓ Created fork someone/REPO\n✓ Cloned fork\n",
+		},
 		{
 			name: "explicit interactive already forked",
 			tty:  true,
@@ -790,9 +811,8 @@ func TestRepoFork(t *testing.T) {
 				cs.Register(`git clone https://github.com/someone/REPO\.git`, 0, "")
 				cs.Register(`git -C REPO remote add -f upstream https://github\.com/OWNER/REPO\.git`, 0, "")
 			},
-			wantErrOut: "someone/REPO already exists",
+			wantErrOut: "! someone/REPO already exists\n✓ Cloned fork\n",
 		},
-
 		{
 			name: "explicit nontty no flags",
 			opts: &ForkOptions{
@@ -857,6 +877,7 @@ func TestRepoFork(t *testing.T) {
 		io, _, stdout, stderr := iostreams.Test()
 		io.SetStdinTTY(tt.tty)
 		io.SetStdoutTTY(tt.tty)
+		io.SetStderrTTY(tt.tty)
 		tt.opts.IO = io
 
 		tt.opts.BaseRepo = func() (ghrepo.Interface, error) {

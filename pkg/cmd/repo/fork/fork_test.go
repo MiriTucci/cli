@@ -34,6 +34,7 @@ func TestNewCmdFork(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			// TODO dude what
 			name: "repo with git args",
 			cli:  "foo/bar -- --foo=bar",
 			wants: ForkOptions{
@@ -157,6 +158,7 @@ func TestNewCmdFork(t *testing.T) {
 			assert.Equal(t, tt.wants.PromptRemote, gotOpts.PromptRemote)
 			assert.Equal(t, tt.wants.PromptClone, gotOpts.PromptClone)
 			assert.Equal(t, tt.wants.Organization, gotOpts.Organization)
+			// TODO dude test GitArgs
 		})
 	}
 }
@@ -761,13 +763,32 @@ func TestRepoFork(t *testing.T) {
 		// TODO implicit already forked
 		// TODO implicit interactive
 
-		// TODO explicit with git flags
-		// TODO explicit with git flag errors
-		// TODO explicit protocol configured
-		// TODO explicit protocol unconfigured
+		// TODO putting these two off until I actually change the config behavior:
+		// TODO explicit with configured protocol
+		// TODO explicit with unconfigured protocol
 
 		// TODO i don't like passing since every time, clean that up
 
+		{
+			name: "passes git flags",
+			tty:  true,
+			opts: &ForkOptions{
+				Repository: "OWNER/REPO",
+				GitArgs:    []string{"--depth", "1"},
+				Clone:      true,
+			},
+			httpStubs: func(reg *httpmock.Registry) {
+				reg.Register(
+					httpmock.REST("POST", "repos/OWNER/REPO/forks"),
+					httpmock.StringResponse(forkResult))
+			},
+			execStubs: func(cs *run.CommandStubber) {
+				cs.Register(`git clone --depth 1 https://github.com/someone/REPO\.git`, 0, "")
+				cs.Register(`git -C REPO remote add -f upstream https://github\.com/OWNER/REPO\.git`, 0, "")
+			},
+			since:      2 * time.Second,
+			wantErrOut: "✓ Created fork someone/REPO\n✓ Cloned fork\n",
+		},
 		{
 			name: "explicit fork to org",
 			tty:  true,

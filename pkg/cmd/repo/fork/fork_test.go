@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -760,16 +761,81 @@ func TestRepoFork(t *testing.T) {
 		// TODO implicit already forked
 		// TODO implicit interactive
 
-		// TODO explicit interactive with clone
-		// TODO explicit interactive with no clone
-		// TODO explicit url arg
-		// TODO explicit full name arg
-		// TODO explicit fork to org
 		// TODO explicit with git flags
 		// TODO explicit with git flag errors
+		// TODO explicit protocol configured
+		// TODO explicit protocol unconfigured
 
 		// TODO i don't like passing since every time, clean that up
 
+		{
+			name: "explicit fork to org",
+			tty:  true,
+			opts: &ForkOptions{
+				Repository:   "OWNER/REPO",
+				Organization: "gamehendge",
+				Clone:        true,
+			},
+			httpStubs: func(reg *httpmock.Registry) {
+				reg.Register(
+					httpmock.REST("POST", "repos/OWNER/REPO/forks"),
+					func(req *http.Request) (*http.Response, error) {
+						bb, err := ioutil.ReadAll(req.Body)
+						if err != nil {
+							return nil, err
+						}
+						assert.Equal(t, `{"organization":"gamehendge"}`, strings.TrimSpace(string(bb)))
+						return &http.Response{
+							Request:    req,
+							StatusCode: 200,
+							Body:       ioutil.NopCloser(bytes.NewBufferString(`{"name":"REPO", "owner":{"login":"gamehendge"}}`)),
+						}, nil
+					})
+			},
+			execStubs: func(cs *run.CommandStubber) {
+				cs.Register(`git clone https://github.com/gamehendge/REPO\.git`, 0, "")
+				cs.Register(`git -C REPO remote add -f upstream https://github\.com/OWNER/REPO\.git`, 0, "")
+			},
+			since:      2 * time.Second,
+			wantErrOut: "✓ Created fork gamehendge/REPO\n✓ Cloned fork\n",
+		},
+		{
+			name: "explicit url arg",
+			tty:  true,
+			opts: &ForkOptions{
+				Repository: "https://github.com/OWNER/REPO.git",
+				Clone:      true,
+			},
+			httpStubs: func(reg *httpmock.Registry) {
+				reg.Register(
+					httpmock.REST("POST", "repos/OWNER/REPO/forks"),
+					httpmock.StringResponse(forkResult))
+			},
+			execStubs: func(cs *run.CommandStubber) {
+				cs.Register(`git clone https://github.com/someone/REPO\.git`, 0, "")
+				cs.Register(`git -C REPO remote add -f upstream https://github\.com/OWNER/REPO\.git`, 0, "")
+			},
+			since:      2 * time.Second,
+			wantErrOut: "✓ Created fork someone/REPO\n✓ Cloned fork\n",
+		},
+		{
+			name: "explicit interactive no clone",
+			tty:  true,
+			opts: &ForkOptions{
+				Repository:  "OWNER/REPO",
+				PromptClone: true,
+			},
+			httpStubs: func(reg *httpmock.Registry) {
+				reg.Register(
+					httpmock.REST("POST", "repos/OWNER/REPO/forks"),
+					httpmock.StringResponse(forkResult))
+			},
+			askStubs: func(as *prompt.AskStubber) {
+				as.StubOne(false)
+			},
+			since:      2 * time.Second,
+			wantErrOut: "✓ Created fork someone/REPO\n",
+		},
 		{
 			name: "explicit interactive",
 			tty:  true,

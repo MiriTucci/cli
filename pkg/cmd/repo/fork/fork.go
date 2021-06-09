@@ -49,6 +49,7 @@ var Since = func(t time.Time) time.Duration {
 
 // TODO warn about useless flags (--remote, --remote-name) when running from outside a repository
 // TODO output over STDOUT not STDERR
+// TODO remote-name has no effect on its own; error that or change behavior
 
 func NewCmdFork(f *cmdutil.Factory, runF func(*ForkOptions) error) *cobra.Command {
 	opts := &ForkOptions{
